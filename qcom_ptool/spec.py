@@ -28,7 +28,7 @@ from typing import TypedDict
 DiskParams = dict[str, str]
 
 # Parsed ``--partition`` line normalised for the XML attribute set.
-# Expected keys: label, size_in_kb, type, bootable, readonly, filename, sparse,
+# Expected keys: label, size_in_kb, type, bootable, readonly, filename, fileoffset, sparse,
 # active, successful, unbootable.
 # See PARTITION_ENTRY_DEFAULTS for the canonical set.
 PartitionEntry = dict[str, str]

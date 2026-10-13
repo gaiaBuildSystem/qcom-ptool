@@ -124,6 +124,8 @@ def _partition_from_node(
         entry["uniqueguid"] = str(node["unique-guid"])
     if "filename" in node:
         entry["filename"] = str(node["filename"])
+    if "file-offset" in node:
+        entry["fileoffset"] = str(int(node["file-offset"]))
     if "sparse" in node:
         entry["sparse"] = _bool_str(node["sparse"])
     if entry["label"] in image_map:

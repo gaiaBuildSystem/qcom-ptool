@@ -133,6 +133,8 @@ def partition_options(
             entry["unbootable"] = to_bool(arg)
         elif opt == "--filename":
             entry["filename"] = arg
+        elif opt == "--file-offset":
+            entry["fileoffset"] = str(int(arg, 0))
         elif opt == "--sparse":
             entry["sparse"] = to_bool(arg)
         elif opt == "--uniqueguid":
@@ -163,6 +165,7 @@ _PARTITION_LONG_OPTS = [
     "size=",
     "type-guid=",
     "filename=",
+    "file-offset=",
     "attributes=",
     "bootable=",
     "readonly=",

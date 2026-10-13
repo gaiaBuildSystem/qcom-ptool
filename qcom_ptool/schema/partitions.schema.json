@@ -109,6 +109,11 @@
                         "type": "string",
                         "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
                     },
+                    "file-offset": {
+                        "description": "Offset, in sectors, into filename where this partition's data starts.",
+                        "type": "integer",
+                        "minimum": 0
+                    },
                     "sparse": {
                         "type": "boolean"
                     },

@@ -1140,7 +1140,7 @@ def CreateGPTPartitionTable(PhysicalPartitionNumber, UserProvided=False):
                     * SECTOR_SIZE_IN_BYTES
                     / 1024.0,  # Size in KB
                     PhysicalPartitionNumber,
-                    FileOffset[z],
+                    0,  # zeros/blank files are never offset
                     ConvertKBtoSectors(PhyPartition[k][j]["original_size_in_kb"])
                     + LastLBA
                     - FirstLBA
@@ -1160,7 +1160,7 @@ def CreateGPTPartitionTable(PhysicalPartitionNumber, UserProvided=False):
                     * SECTOR_SIZE_IN_BYTES
                     / 1024.0,  # Size in KB
                     PhysicalPartitionNumber,
-                    FileOffset[z],
+                    0,  # zeros/blank files are never offset
                     LastLBA
                     - FirstLBA
                     + 1
@@ -1178,7 +1178,7 @@ def CreateGPTPartitionTable(PhysicalPartitionNumber, UserProvided=False):
                     0,
                     PrimaryGPTNumLBAs * SECTOR_SIZE_IN_BYTES / 1024.0,
                     PhysicalPartitionNumber,
-                    FileOffset[z],
+                    0,  # zeros/blank files are never offset
                     PrimaryGPTNumLBAs,
                     "gpt_empty%d.bin" % k,
                     "false",
