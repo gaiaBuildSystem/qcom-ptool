@@ -435,3 +435,29 @@ def test_image_map_flows_through_reduction(tmp_path):
     board = resolve_board(os.path.join(root, "boards/b.yaml"))
     specs = board_to_specs(board, image_map={"rootfs": "override.img"})
     assert specs[0][1]["partitions"]["0"][0]["filename"] == "override.img"
+
+
+def test_board_rejects_file_offset_without_file_partition_size(tmp_path):
+    root = _tree(
+        tmp_path,
+        {
+            "boards/b.yaml": """
+                storage:
+                  - id: nvme0
+                    type: nvme
+                    size: 68719476736
+                    partitions:
+                      - name: efi
+                        size: "524288KB"
+                        type-guid: "%s"
+                        filename: disk.img
+                        file-offset: 16384
+                      - name: rootfs
+                        size: "1KB"
+                        type-guid: "%s"
+            """ % (GUID_A, GUID_B),
+        },
+    )
+    board = resolve_board(os.path.join(root, "boards/b.yaml"))
+    with pytest.raises(BoardResolveError, match="nvme0.*efi"):
+        board_to_specs(board)

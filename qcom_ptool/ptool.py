@@ -145,6 +145,17 @@ def ConvertKBtoSectors(x):
     return int((x * 1024) // SECTOR_SIZE_IN_BYTES)
 
 
+def FileSliceSizeAndSectors(PhyPartition, DeviceSizeInKB, DeviceSectors):
+    ## Returns (size_in_KB, num_partition_sectors) for a rawprogram program entry.
+    ## When the partition's slice size inside the file is declared (file_partition_size_kb > 0),
+    ## it overrides the device-based sizing so the flasher never reads past the end of this
+    ## partition's data into adjacent partitions that share the same image file.
+    FileSliceKB = PhyPartition["file_partition_size_kb"]
+    if FileSliceKB > 0:
+        return float(FileSliceKB), ConvertKBtoSectors(FileSliceKB)
+    return DeviceSizeInKB, DeviceSectors
+
+
 def UpdatePatch(
     StartSector, ByteOffset, PHYPartition, size_in_bytes, szvalue, szfilename, szwhat
 ):
@@ -1109,18 +1120,19 @@ def CreateGPTPartitionTable(PhysicalPartitionNumber, UserProvided=False):
             # print "LastLBA=",LastLBA
             # print "FirstLBA=",FirstLBA
             # print "FilePartitionOffset[z]=",FilePartitionOffset[z]
+            SliceSizeInKB, SliceSectors = FileSliceSizeAndSectors(
+                PhyPartition[k][j],
+                ((LastLBA - FirstLBA + 1)) * SECTOR_SIZE_IN_BYTES / 1024.0,
+                LastLBA - FirstLBA + 1 - FilePartitionOffset[z],
+            )
+
             UpdateRawProgram(
                 RawProgramXML,
                 FirstLBA + FilePartitionOffset[z],  # Start sector
-                ((LastLBA - FirstLBA + 1))
-                * SECTOR_SIZE_IN_BYTES
-                / 1024.0,  # Size in KB
+                SliceSizeInKB,  # Size in KB
                 PhysicalPartitionNumber,
                 FileOffset[z],
-                LastLBA
-                - FirstLBA
-                + 1
-                - FilePartitionOffset[z],  # num_partition_sectors
+                SliceSectors,  # num_partition_sectors
                 FileToProgram[z],
                 FileSparse[z],
                 PartitionLabel,
@@ -1995,6 +2007,7 @@ def ParseXML(XMLFile):
 
                 Partition["size_in_kb"] = 0
                 Partition["original_size_in_kb"] = 0
+                Partition["file_partition_size_kb"] = 0
                 Partition["readonly"] = "false"
                 Partition["label"] = "false"
                 Partition["type"] = "false"
@@ -2030,6 +2043,10 @@ def ParseXML(XMLFile):
                         print("Found a file tag '%s'" % value)
                     elif name == "fileoffset":
                         Partition["fileoffset"][-1] = value
+                    elif name == "file_partition_size_kb":
+                        ## Slice size in KB of this partition's data inside the file,
+                        ## only meaningful together with fileoffset
+                        Partition["file_partition_size_kb"] = int(value)
                     elif name == "label":
                         Partition["label"] = value
                         print("LABEL:", value)
@@ -2947,13 +2964,19 @@ def CreateMasterBootRecord(k, NumMBRPartitions):
         for z in range(len(FileToProgram)):
             # print "File: ",FileToProgram[z]
             # print "FilePartitionOffset[z]=",FilePartitionOffset[z]
+            SliceSizeInKB, SliceSectors = FileSliceSizeAndSectors(
+                PhyPartition[k][j],
+                PartitionSectorSize * SECTOR_SIZE_IN_BYTES / 1024.0,
+                PartitionSectorSize - FilePartitionOffset[z],
+            )
+
             UpdateRawProgram(
                 RawProgramXML,
                 FirstLBA + FilePartitionOffset[z],
-                PartitionSectorSize * SECTOR_SIZE_IN_BYTES / 1024.0,
+                SliceSizeInKB,  # Size in KB
                 k,
                 FileOffset[z],
-                PartitionSectorSize - FilePartitionOffset[z],
+                SliceSectors,  # num_partition_sectors
                 FileToProgram[z],
                 FileSparse[z],
                 PartitionLabel,
@@ -3340,13 +3363,19 @@ def CreateExtendedBootRecords(k, NumEBRPartitions):
         for z in range(len(FileToProgram)):
             # print "File: ",FileToProgram[z]
             # print "FilePartitionOffset[z]=",FilePartitionOffset[z]
+            SliceSizeInKB, SliceSectors = FileSliceSizeAndSectors(
+                PhyPartition[k][j],
+                PartitionSectorSize * SECTOR_SIZE_IN_BYTES / 1024.0,
+                PartitionSectorSize - FilePartitionOffset[z],
+            )
+
             UpdateRawProgram(
                 RawProgramXML,
                 FirstLBA + FilePartitionOffset[z],
-                PartitionSectorSize * SECTOR_SIZE_IN_BYTES / 1024.0,
+                SliceSizeInKB,  # Size in KB
                 k,
                 FileOffset[z],
-                PartitionSectorSize - FilePartitionOffset[z],
+                SliceSectors,  # num_partition_sectors
                 FileToProgram[z],
                 FileSparse[z],
                 PartitionLabel,

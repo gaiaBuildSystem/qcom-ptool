@@ -33,6 +33,7 @@ from qcom_ptool.spec import (
     LoadedSpec,
     PartitionEntry,
     PartitionsByLun,
+    validate_sliced_partitions,
 )
 
 _SCHEMA_PACKAGE = "qcom_ptool.schema"
@@ -126,6 +127,9 @@ def _partition_from_node(
         entry["filename"] = str(node["filename"])
     if "file-offset" in node:
         entry["fileoffset"] = str(int(node["file-offset"]))
+    if "file-partition-size" in node:
+        # Integer KB per the schema; not a size string like "size".
+        entry["file_partition_size_kb"] = str(int(node["file-partition-size"]))
     if "sparse" in node:
         entry["sparse"] = _bool_str(node["sparse"])
     if entry["label"] in image_map:
@@ -153,4 +157,8 @@ def load(path: str, image_map: Mapping[str, str] | None = None) -> LoadedSpec:
     for node in document.get("partitions", []):
         phys_part, entry = _partition_from_node(node, image_map)
         partitions.setdefault(phys_part, []).append(entry)
+    try:
+        validate_sliced_partitions(disk, partitions)
+    except ValueError as exc:
+        raise YamlParseError("%s: %s" % (path, exc)) from exc
     return {"disk": disk, "partitions": partitions}

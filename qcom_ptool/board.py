@@ -38,7 +38,7 @@ import jsonschema
 import yaml  # type: ignore[import-untyped]
 
 from qcom_ptool.loaders.yaml import _disk_from_node, _partition_from_node
-from qcom_ptool.spec import LoadedSpec, PartitionsByLun
+from qcom_ptool.spec import LoadedSpec, PartitionsByLun, validate_sliced_partitions
 
 _SCHEMA_PACKAGE = "qcom_ptool.schema"
 
@@ -284,6 +284,12 @@ def storage_to_loaded_spec(
     for node in storage.get("partitions", []):
         phys_part, entry = _partition_from_node(node, image_map)
         partitions.setdefault(phys_part, []).append(entry)
+    try:
+        validate_sliced_partitions(disk, partitions)
+    except ValueError as exc:
+        raise BoardResolveError(
+            "storage '%s': %s" % (storage.get("id", ""), exc)
+        ) from exc
     return {"disk": disk, "partitions": partitions}
 
 

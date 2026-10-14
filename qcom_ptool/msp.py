@@ -706,6 +706,60 @@ def PerformWrite():
             else:
                 pass
 
+        ## Sectors as declared in the rawprogram file; 0 means "grow to fill
+        ## the partition", resolved below from the image size. A growing
+        ## partition that starts at a non-zero offset of its file is meant to
+        ## read from there to end-of-file, so it must not be held to a
+        ## whole-slice check against its post-resolution sector count.
+        DeclaredSectors = int(Write["num_partition_sectors"])
+
+        ## When this partition is only a slice of the file (file_sector_offset > 0),
+        ## the image must at least reach the start of the slice; and when the
+        ## slice length was declared in the rawprogram file, it must contain
+        ## the whole slice. Otherwise the flasher would stream past this
+        ## partition's data into whatever follows it in the same image file.
+        ## These checks use the full image size, before it is clamped below.
+        if int(Write["file_sector_offset"]) > 0:
+            SliceStartBytes = int(Write["file_sector_offset"]) * SECTOR_SIZE
+
+            if size < SliceStartBytes:
+                PrintBigError(
+                    "ERROR: Image %s is too small to reach this partition's slice\n"
+                    "\tFile offset (sectors): %i, Required: %i bytes\n"
+                    "\tImage size: %i bytes"
+                    % (
+                        Write["filename"],
+                        int(Write["file_sector_offset"]),
+                        SliceStartBytes,
+                        size,
+                    )
+                )
+
+            if (
+                DeclaredSectors != 0
+                and size < SliceStartBytes + DeclaredSectors * SECTOR_SIZE
+            ):
+                PrintBigError(
+                    "ERROR: Image %s is too small to contain this partition's slice\n"
+                    "\tFile offset (sectors): %i, Sectors (partition): %i, Required: %i bytes\n"
+                    "\tImage size: %i bytes"
+                    % (
+                        Write["filename"],
+                        int(Write["file_sector_offset"]),
+                        DeclaredSectors,
+                        SliceStartBytes + DeclaredSectors * SECTOR_SIZE,
+                        size,
+                    )
+                )
+
+            ## From here on, size is the number of bytes to read after seeking
+            ## to the slice start: exactly the declared slice, or everything up
+            ## to end-of-file for a growing partition.
+            if DeclaredSectors != 0:
+                size = DeclaredSectors * SECTOR_SIZE
+            else:
+                size -= SliceStartBytes
+
         if Write["num_partition_sectors"] == 0:
             Write["num_partition_sectors"] = int(size / SECTOR_SIZE)
             if size % SECTOR_SIZE != 0:

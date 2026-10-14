@@ -338,3 +338,32 @@ def test_named_fields_emit_byte_identical_xml(tmp_path):
 def test_schema_rejects_invalid_named_fields(tmp_path, text):
     with pytest.raises(yaml_loader.YamlParseError):
         load(_write(tmp_path, "bad.yaml", text))
+
+
+# ---------------------------------------------------------------------------
+# file-partition-size (sliced partitions of shared files)
+# ---------------------------------------------------------------------------
+
+
+def test_file_partition_size_matches_conf(tmp_path):
+    """file-partition-size is an integer in KB, same as the .conf KB value."""
+    conf_spec = load(
+        _conf_with(
+            tmp_path,
+            "--filename=disk.img --file-offset=16384 --file-partition-size=147456KB",
+        )
+    )
+    yaml_spec = load(
+        _yaml_with(
+            tmp_path,
+            "filename: disk.img\n    file-offset: 16384\n    file-partition-size: 147456",
+        )
+    )
+    entry = yaml_spec["partitions"]["0"][0]
+    assert entry["file_partition_size_kb"] == "147456"
+    assert yaml_spec == conf_spec
+
+
+def test_file_offset_without_file_partition_size_rejected(tmp_path):
+    with pytest.raises(yaml_loader.YamlParseError, match="file-partition-size"):
+        load(_yaml_with(tmp_path, "filename: disk.img\n    file-offset: 16384"))

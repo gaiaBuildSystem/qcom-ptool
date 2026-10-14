@@ -334,6 +334,124 @@ def test_parse_partition_lines_accepts_named_flags() -> None:
 
 
 # ---------------------------------------------------------------------------
+# --file-partition-size (sliced partitions of shared files)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_partition_lines_file_partition_size_kb() -> None:
+    lines = [
+        "--partition --name=efi --size=512MB "
+        "--type-guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B "
+        "--filename=disk.img --file-offset=16384 --file-partition-size=147456KB",
+    ]
+    entry = conf.parse_partition_lines(lines)["0"][0]
+    assert entry["fileoffset"] == "16384"
+    assert entry["file_partition_size_kb"] == "147456"
+
+
+def test_parse_partition_lines_file_partition_size_mb() -> None:
+    lines = [
+        "--partition --name=efi --size=512MB "
+        "--type-guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B "
+        "--filename=disk.img --file-offset=16384 --file-partition-size=128MB",
+    ]
+    entry = conf.parse_partition_lines(lines)["0"][0]
+    assert entry["file_partition_size_kb"] == str(128 * 1024)
+
+
+def test_conf_load_rejects_file_offset_without_file_partition_size(tmp_path) -> None:
+    p = tmp_path / "p.conf"
+    p.write_text(
+        "--disk --type=emmc --size=67108864 --sector-size-in-bytes=512\n"
+        "--partition --name=efi --size=512MB "
+        "--type-guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B "
+        "--filename=disk.img --file-offset=16384\n"
+    )
+    with pytest.raises(conf.ConfParseError, match="--file-partition-size"):
+        conf.load(str(p))
+
+
+def test_conf_load_accepts_sized_slice(tmp_path) -> None:
+    p = tmp_path / "p.conf"
+    p.write_text(
+        "--disk --type=emmc --size=67108864 --sector-size-in-bytes=512\n"
+        "--partition --name=efi --size=512MB "
+        "--type-guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B "
+        "--filename=disk.img --file-offset=16384 --file-partition-size=147456KB\n"
+    )
+    result = conf.load(str(p))
+    assert result["partitions"]["0"][0]["file_partition_size_kb"] == "147456"
+
+
+def test_conf_load_rejects_overlapping_slices(tmp_path) -> None:
+    # 512-byte sectors: a 1MB slice at offset 0 covers sectors 0-2047, so a
+    # second slice of the same file starting at sector 1024 overlaps it.
+    p = tmp_path / "p.conf"
+    p.write_text(
+        "--disk --type=emmc --size=67108864 --sector-size-in-bytes=512\n"
+        "--partition --name=a --size=1MB "
+        "--type-guid=00000000-0000-0000-0000-000000000001 "
+        "--filename=disk.img --file-offset=0 --file-partition-size=1MB\n"
+        "--partition --name=b --size=1MB "
+        "--type-guid=00000000-0000-0000-0000-000000000002 "
+        "--filename=disk.img --file-offset=1024 --file-partition-size=512KB\n"
+    )
+    with pytest.raises(conf.ConfParseError, match="overlap"):
+        conf.load(str(p))
+
+
+def test_conf_load_non_adjacent_slices_of_same_file_ok(tmp_path) -> None:
+    # Slices that merely share a file but do not overlap are valid.
+    p = tmp_path / "p.conf"
+    p.write_text(
+        "--disk --type=emmc --size=67108864 --sector-size-in-bytes=512\n"
+        "--partition --name=a --size=1MB "
+        "--type-guid=00000000-0000-0000-0000-000000000001 "
+        "--filename=disk.img --file-offset=0 --file-partition-size=512KB\n"
+        "--partition --name=b --size=1MB "
+        "--type-guid=00000000-0000-0000-0000-000000000002 "
+        "--filename=disk.img --file-offset=4096 --file-partition-size=512KB\n"
+    )
+    result = conf.load(str(p))
+    assert len(result["partitions"]["0"]) == 2
+
+
+def test_conf_load_growing_last_partition_exemption(tmp_path) -> None:
+    # With grow-to-fill-disk, the last partition of a LUN reads from its file
+    # offset to end-of-file by design, so it may omit --file-partition-size.
+    p = tmp_path / "p.conf"
+    p.write_text(
+        "--disk --type=emmc --size=67108864 --sector-size-in-bytes=512 "
+        "--grow-last-partition\n"
+        "--partition --name=efi --size=512MB "
+        "--type-guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B "
+        "--filename=disk.img --file-offset=16384 --file-partition-size=147456KB\n"
+        "--partition --name=rootfs --size=16MB "
+        "--type-guid=B921B045-1DF0-41C3-AF44-4C6F280D3FAE "
+        "--filename=disk.img --file-offset=311296\n"
+    )
+    result = conf.load(str(p))
+    assert "file_partition_size_kb" not in result["partitions"]["0"][1]
+
+
+def test_conf_load_growing_exemption_only_applies_to_last(tmp_path) -> None:
+    # The exemption is for the last partition of a LUN only; an earlier
+    # sliced partition still has to declare its size.
+    p = tmp_path / "p.conf"
+    p.write_text(
+        "--disk --type=emmc --size=67108864 --sector-size-in-bytes=512 "
+        "--grow-last-partition\n"
+        "--partition --name=efi --size=512MB "
+        "--type-guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B "
+        "--filename=disk.img --file-offset=16384\n"
+        "--partition --name=rootfs --size=16MB "
+        "--type-guid=B921B045-1DF0-41C3-AF44-4C6F280D3FAE\n"
+    )
+    with pytest.raises(conf.ConfParseError, match="efi"):
+        conf.load(str(p))
+
+
+# ---------------------------------------------------------------------------
 # loader public API: load() + dispatcher
 # ---------------------------------------------------------------------------
 

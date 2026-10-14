@@ -31,6 +31,7 @@
                     "unbootable": {"type": "boolean"},
                     "unique-guid": {"type": "string", "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"},
                     "file-offset": {"type": "integer", "minimum": 0},
+                    "file-partition-size": {"type": "integer", "minimum": 1},
                     "sparse": {"type": "boolean"},
                     "lun": {"type": "integer", "minimum": 0},
                     "phys-part": {"type": "integer", "minimum": 0}

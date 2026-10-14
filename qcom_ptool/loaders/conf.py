@@ -26,6 +26,7 @@ from qcom_ptool.spec import (
     LoadedSpec,
     PartitionEntry,
     PartitionsByLun,
+    validate_sliced_partitions,
 )
 
 
@@ -135,6 +136,8 @@ def partition_options(
             entry["filename"] = arg
         elif opt == "--file-offset":
             entry["fileoffset"] = str(int(arg, 0))
+        elif opt == "--file-partition-size":
+            entry["file_partition_size_kb"] = str(partition_size_in_kb(arg))
         elif opt == "--sparse":
             entry["sparse"] = to_bool(arg)
         elif opt == "--uniqueguid":
@@ -166,6 +169,7 @@ _PARTITION_LONG_OPTS = [
     "type-guid=",
     "filename=",
     "file-offset=",
+    "file-partition-size=",
     "attributes=",
     "bootable=",
     "readonly=",
@@ -249,4 +253,8 @@ def load(path: str, image_map: Mapping[str, str] | None = None) -> LoadedSpec:
         # Should be unreachable: read_conf guarantees disk_line starts with --disk.
         raise ConfParseError("%s: failed to parse --disk line" % path)
     partitions = parse_partition_lines(partition_lines, image_map)
+    try:
+        validate_sliced_partitions(disk, partitions)
+    except ValueError as exc:
+        raise ConfParseError("%s: %s" % (path, exc)) from exc
     return {"disk": disk, "partitions": partitions}

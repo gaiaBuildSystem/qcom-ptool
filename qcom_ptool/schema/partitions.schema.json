@@ -110,9 +110,14 @@
                         "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
                     },
                     "file-offset": {
-                        "description": "Offset, in sectors, into filename where this partition's data starts.",
+                        "description": "Offset, in sectors, into filename where this partition's data starts. Requires file-partition-size unless the partition is a growing last one (grow-to-fill-disk), whose slice runs to end-of-file.",
                         "type": "integer",
                         "minimum": 0
+                    },
+                    "file-partition-size": {
+                        "description": "Length, in KB, of this partition's slice inside filename. Required together with file-offset unless the partition is a growing last one (grow-to-fill-disk), whose slice runs to end-of-file.",
+                        "type": "integer",
+                        "minimum": 1
                     },
                     "sparse": {
                         "type": "boolean"
